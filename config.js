@@ -15,9 +15,9 @@ let charadex = {};
 /* Any preview links will still show Charadex's information
 /* ==================================================================== */
 charadex.site = {
-  title: "Charadex",
-  url: "https://charadex-team.github.io/charadex-v1.0/",
-  description: `A tool for organizing small ARPGs and species.`
+  title: "Adventium ARPG",
+  url: "https://adventiumarpg.wixsite.com/adventiumarpg",
+  description: `A relaxed, wolf-centered art roleplay group with optional tabletop gameplay elements.`
 }
 
 /* ==================================================================== */
@@ -26,7 +26,7 @@ charadex.site = {
 /* ==================================================================== */
 charadex.sheet = {
 
-  id: "1GwgfLizD3HQCieGia6di-TfU4E3EipT9Jb0BDZQwNak",
+  id: "iGb6pFML7Ih7GxpK_e5PerYKBe4ZZ0P-6RbozDNPy0c",
 
   pages: {
     masterlist:    "masterlist",
@@ -42,12 +42,11 @@ charadex.sheet = {
 
   options: {
 
-    designTypes: ['All', 'Official Design', 'Guest Design', 'MYO Slot', 'MYO Design'],
-    statuses: ['All', 'Resell', 'Trade', 'Gift', 'Voided', 'For Sale', 'Purchased'],
-    rarity: ['All', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Legendary'],
-    species: ['All', 'Dog', 'Cat', 'Bunny'],
-    itemTypes: ['All', 'Currency', 'MYO Slot', 'Pet', 'Trait', 'Misc'],
-    traitTypes: ['All', 'Ears', 'Eyes', 'Body', 'Limbs', 'Tails', 'Misc', 'Mutations']
+    designTypes: ['All',' Approved Character', 'Adoptable Design', 'Raffle Design'],
+    statuses: ['All', 'alive', 'deceased', 'unknown'],
+    Allegiance: ['All', 'Loner', 'Engrimar Kingdom', 'Thaedrun Pack', 'Lake Valley Pack', 'Crystal Pool Pack', 'the Haven', 'Erimia', 'Stronghold', 'Erivyrn'],
+    species: ['All', 'Wolf'],
+    itemTypes: ['All', 'Currency', 'Skill Proficiency Modifier', 'Reputation Modifier', 'Event Advantage', 'Misc'],
 
   }
 
