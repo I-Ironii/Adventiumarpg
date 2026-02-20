@@ -8,46 +8,17 @@ import { charadex } from '../charadex.js';
 /* Load
 ======================================================================= */
 document.addEventListener("DOMContentLoaded", async () => {
-
-  let dex = await charadex.initialize.page(
-    null,
-    charadex.page.inventory,
-    null, 
-    async (listData) => {
-
-      if (listData.type == 'profile') {
-
-        let profile = listData.profileArray[0];
-
-        // Inventory
-        charadex.initialize.groupGallery(
-          charadex.page.inventory.inventoryConfig,
-          await charadex.manageData.inventoryFix(profile),
-          'type',
-          charadex.url.getPageUrl('items')
-        )
-
-        // Designs
-        if (charadex.tools.checkArray(profile.masterlist)) {
-          let designs = await charadex.initialize.page(
-            profile.masterlist,
-            charadex.page.inventory.relatedData['masterlist'],
-          );
-        }
-
-        // Logs
-        if (charadex.tools.checkArray(profile.inventorylog)) {
-          let logs = await charadex.initialize.page(
-            profile.inventorylog,
-            charadex.page.inventory.relatedData['inventory log'],
-          );
-        }
-
-
-      }
+  let dex = await charadex.initialize.page(null, charadex.page.prompts, null, 
+  (listData) => {
+    let backgroundElement = $('.cd-prompt-background');
+    if (listData.type == 'profile') {
+      backgroundElement.attr('style', `background-image: url(${listData.profileArray[0].image})`);
+    } else {
+      backgroundElement.each(function(i) {
+        const image = listData.array[i]?.image;
+        $(this).attr('style', `background-image: url(${image})`);
+      });
     }
-  );
-  
+  });
   charadex.tools.loadPage('.softload', 500);
-  
 });

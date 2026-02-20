@@ -1,231 +1,376 @@
 /* ==================================================================== */
 /* Import Charadex
 ======================================================================= */
-import { charadex } from './list.js';
+import { charadex } from './utilities.js';
+import List from "https://esm.sh/gh/javve/list.js@v2.3.0";
+
 
 /* ==================================================================== */
-/* Initialize
+/* Build List
 /* ====================================================================  /
 
-  This is where the real magic happens
+  This is just an eaasy way to build a new list based on charadex
+  You dont have to use it to build your own
     
 ======================================================================= */
-charadex.initialize = {};
+charadex.buildList = (selector = 'charadex') => {
 
-
-/* ==================================================================== */
-/* Page
-======================================================================= */
-charadex.initialize.page = async (dataArr, config, dataCallback, listCallback, customPageUrl = false) => {
-
-  if (!config) return console.error('No configuration added.');
-
-  // Set up
-  let selector = config.dexSelector;
-  let pageUrl = customPageUrl || charadex.url.getPageUrl(config.sitePage);
-
-  // Add folders, filters & search
-  let folders = config.fauxFolder?.toggle ?? false ? charadex.listFeatures.fauxFolders(pageUrl, config.fauxFolder.parameters, selector) : false;
-  let filters = config.filters?.toggle ?? false ? charadex.listFeatures.filters(config.filters.parameters, selector) : false;
-  let search = config.search?.toggle ?? false ? charadex.listFeatures.search(config.search.parameters, config.search.filterToggle, selector) : false;
-
-  // Get our data
-  let charadexData = dataArr || await charadex.importSheet(config.sheetPage);
-
-  // Add profile information
-  for (let entry of charadexData) {
-    charadex.tools.addProfileLinks(entry, pageUrl, config.profileProperty); // Go ahead and add profile keys just in case
-    if (folders) folders(entry, config.fauxFolder.folderProperty); // If folders, add folder info
-    if (entry.rarity) entry.raritybadge = `<span class="badge badge-${charadex.tools.scrub(entry.rarity)}">${entry.rarity}</span>`; // Adds a rarity badge
+  let listConfig = {
+    listClass: `${selector}-list`,
+    item: `${selector}-gallery-item`,
   }
+  
+  /* Initialize Gallery
+  ===================================================================== */
+  const initializeGallery = (galleryArray, additionalListConfigs, gallerySelector) => {
 
-  // If there's related data, add it
-  if (config.relatedData) {
-    for (let page in config.relatedData) {
-      await charadex.manageData.relateData(
-        charadexData, 
-        config.relatedData[page].primaryProperty, 
-        page, 
-        config.relatedData[page].relatedProperty
-      );
-    }
+    // Check if there's an array
+    if (!charadex.tools.checkArray(galleryArray)) return false;
+
+    // Create list classes
+    listConfig.valueNames =  charadex.tools.createListClasses(galleryArray);
+
+    // Return the list
+    return new List(gallerySelector || `${selector}-gallery`, {...listConfig, ...additionalListConfigs}, galleryArray);
+
+  };
+
+  /* Attempt to get profile Array
+  ===================================================================== */
+  const getProfile = (galleryArray) => {
+
+
+    // Check the parameters
+    let pageParameter = charadex.url.getUrlParameters().get('profile');
+    if (!pageParameter) return false;
+
+    // Attempt to find the profile
+    let profile = galleryArray.find((entry) => {
+      return charadex.tools.scrub(entry.profileid) === charadex.tools.scrub(pageParameter)
+    });
+
+    // Return the profile in an array if it exists 
+    return profile ? [profile] : false;
+  
+  };
+
+  /* Initialize Profile
+  ===================================================================== */
+  const initializeProfile = (profileArray, profileSelector) => {
+
+    // Check if there's an array
+    if (!charadex.tools.checkArray(profileArray)) return false;
+
+    // Create list classes & update the item name
+    listConfig.valueNames =  charadex.tools.createListClasses(profileArray);
+    listConfig.item = `${selector}-profile`;
+
+    // Return the list
+    return new List(profileSelector || `${selector}-gallery`, listConfig, profileArray);
+
+  };
+
+  return {
+    initializeGallery,
+    getProfile,
+    initializeProfile
   }
-
-  // Initialize the list
-  let list = charadex.buildList(selector);
-
-  // Let us manipulate the data before it gets to the list
-  if (typeof dataCallback === 'function') {
-    await dataCallback(charadexData);
-  }
-
-  /* Sort the Dex */
-  if (config.sort?.toggle ?? false) {
-    charadexData = charadex.manageData.sortArray(
-      charadexData, 
-      config.sort.sortProperty, 
-      config.sort.order,
-      config.sort.parametersKey,
-      config.sort.parameters,
-    );
-  }
-
-  // Create Profile
-  const createProfile = async () => {
-
-    // If they dont need to render a profile, don't
-    if (config.profileToggle !== undefined && !config.profileToggle) return false;
-
-    let profileArr = list.getProfile(charadexData);
-    if (!profileArr) return false;
-
-    if (config.prevNext?.toggle ?? false) {
-      charadex.listFeatures.prevNextLink(pageUrl, charadexData, profileArr, selector);
-    }
-    
-    /* Create Profile */
-    let profileList = list.initializeProfile(profileArr);
-
-    // Return those values on Callback
-    if (typeof listCallback === 'function') {
-      await listCallback({
-        type: 'profile',
-        pageUrl: pageUrl,
-        array: charadexData,
-        profileArray: profileArr,
-        list: profileList
-      })
-    }
-
-    return true;
-
-  }
-
-  // If there's a profile, nyoom
-  if (await createProfile()) return;
-
-  // Create Gallery
-  const createGallery = async () => {
-
-    // Add additional list junk
-    let additionalListConfigs = {};
-
-    // Filter by parameters
-    charadexData = charadex.manageData.filterByPageParameters(charadexData);
-
-    // Add Pagination
-    if (config.pagination?.toggle ?? false) {
-      let pagination = charadex.listFeatures.pagination(charadexData.length, config.pagination.amount, config.pagination.bottomToggle, selector);
-      if (pagination) additionalListConfigs = { ...additionalListConfigs, ...pagination };
-    }
-
-    // Initialize Gallery
-    let galleryList = list.initializeGallery(charadexData, additionalListConfigs);
-
-    // Initialize filters and search
-    if ((config.filters?.toggle ?? false) && filters) filters.initializeFilters(galleryList);
-    if ((config.search?.toggle ?? false) && search) search.initializeSearch(galleryList);
-
-    // Return those values on Callback
-    if (typeof listCallback === 'function') {
-      await listCallback({
-        type: 'gallery',
-        pageUrl: pageUrl,
-        array: charadexData,
-        list: galleryList,
-      })
-    }
-
-    return true;
-
-  }
-
-  // Else the gallery nyooms instead
-  return await createGallery();
 
 }
 
 
+/* ==================================================================== */
+/* Features
+/* ====================================================================  /
+
+  Different features for charadex - they're all compiled in the
+  charadex.initialize function but you can use them seperately
+  if you wish
+    
+======================================================================= */
+charadex.listFeatures = {};
 
 /* ==================================================================== */
-/* Grouped Gallery (Mostly for inventory items)
+/* Filters
 ======================================================================= */
-charadex.initialize.groupGallery = async function (config, dataArray, groupBy, customPageUrl = false) {
+charadex.listFeatures.filters = (parameters, selector = 'charadex') => {
 
-  /* Check the Configs */
-  if (!config) return console.error(`No config added.`);
-  
-  /* Get some stuff we'll need */
-  let selector = config.dexSelector;
-  const pageUrl = customPageUrl || charadex.url.getPageUrl(config.sitePage);
+  if (!parameters) return false;
 
-  // Add filters & Search
-  let filters = config.filters?.toggle ?? false ? charadex.listFeatures.filters(config.filters.parameters, selector) : false;
-  let search = config.search?.toggle ?? false ? charadex.listFeatures.search(config.search.parameters, config.search.filterToggle, selector) : false;
+  // Get selection
+  const filterClass = `${selector}-filter`;
+  const filtersElement = $(`#${filterClass}s`);
+  const filterElement = $(`#${filterClass}`);
 
-  /* Attempt to Fetch the data */
-  let charadexData = dataArray;
+  const createFilters = () => {
 
-  // Add profile information
-  for (let entry of charadexData) {
-    charadex.tools.addProfileLinks(entry, pageUrl, config.profileProperty);
-  }
+    // Add filters
+    for (let filter in parameters) {
 
-  /* Sort the Dex */
-  if (config.sort?.toggle ?? false) {
-    charadexData = charadex.manageData.sortArray(
-      charadexData, 
-      config.sort.sortProperty, 
-      config.sort.order,
-      config.sort.parametersKey,
-      config.sort.parameters,
-    );
-  }
+      // Get the filter containers
+      let newFilter = filterElement.clone();
 
-  /* Attempt deal with gallery
-  ======================================================================= */
-  const handleGallery = () => {
+      // Remove the id and add a special class
+      newFilter
+      .removeAttr('id')
+      .addClass(filterClass);
 
-    if (!charadex.tools.checkArray(charadexData)) return false;
+      // Find the label and add the filter name
+      newFilter
+      .find('label')
+      .text(filter);
 
-    // Filter by parameters
-    charadexData = charadex.manageData.filterByPageParameters(charadexData);
+      // Find the select and add the filter name & options
+      let filterDOM = newFilter.find('select')
+      .attr('name', charadex.tools.scrub(filter))
+      .append(charadex.tools.createSelectOptions(parameters[filter]));
 
-    // Group data
-    let groupArray = Object.groupBy(charadexData, obj => obj[groupBy]);
+      // Add multiselect
+      charadex.tools.addMultiselect(filterDOM);
 
-    // Create base selectors
-    let itemSelector =  { item: `${selector}-gallery-item` };
-    let containerSelector =  `${selector}-gallery`;
-
-    for (let group in groupArray) {
-
-      //Create the list selector
-      let groupListSelector = charadex.tools.scrub(group);
-      
-      // Create the DOM elements
-      let groupElement = $(`#${selector}-group-list`).clone();
-      groupElement.removeAttr('id');
-      groupElement.find(`.${selector}-list`).addClass(`${groupListSelector}-list`);
-      groupElement.find(`.${selector}-group-title`).text(group);
-      $(`#${selector}-group`).append(groupElement);
-      
-      // Build list based on group
-      let groupListManager = charadex.buildList(groupListSelector);
-      let groupList = groupListManager.initializeGallery(groupArray[group], itemSelector, containerSelector);
-
-      // Add filters & Search
-      if ((config.filters?.toggle ?? false) && filters) filters.initializeFilters(groupList);
-      if ((config.search?.toggle ?? false) && search) search.initializeSearch(groupList);
+      // Add to the filters container
+      filtersElement.append(newFilter);
 
     }
 
     return true;
 
+  } 
+
+  // Create the filters when created;
+  createFilters();
+
+  const initializeFilters = (listJs) => {
+
+    if (!listJs) return false;
+
+    // Show the filters
+    filtersElement.parents(`#${selector}-filter-container`).show();
+
+    // Deal with the Dom
+    $(`.${filterClass}`).each(function(el) {
+      $(this).on('change', () => {
+
+        // Get the key from the select name attr
+        // And whatever the user selected
+        let key = $(this).find('select').attr('name');
+        let selection = $(this).find('option:selected').toArray().map(item => item.text);
+
+        // Filter the list
+        if (charadex.tools.checkArray(selection) && !selection.includes('All')) {
+          listJs.filter((list) => {
+            let values = list.values()[key];
+            if (charadex.tools.checkArray(values)) {
+              for (let val of values) return selection.includes(val);
+            } else {
+              return selection.includes(values);
+            }
+          });
+        } else {
+          listJs.filter();
+        }
+
+      });
+    });
+    
+    // If they're in a container, hide it if there's nothing in it
+    listJs.on('updated', (list) => {
+      let listClass = $(`.${list.listClass}`);
+      let listContainerSelector = `.${selector}-list-container`;
+      if (list.matchingItems.length < 1 && listClass.length > 0) {
+        listClass.parents(listContainerSelector).hide();
+      } else {
+        listClass.parents(listContainerSelector).show()
+      }
+    })
+
+    return true;
+
+  }
+
+  return { initializeFilters }
+
+}
+
+/* ==================================================================== */
+/* Faux Folders
+======================================================================= */
+charadex.listFeatures.fauxFolders = (pageUrl, folderParameters, selector = 'charadex') => {
+
+  if (!pageUrl || !charadex.tools.checkArray(folderParameters) || !selector) return false;
+
+  // Get the elements
+  const folderElement = $(`#${selector}-folders`);
+
+  // Loop through parameters and add them to the folder element
+  for (let key of folderParameters) {
+    const buttonElement = $(`#${selector}-folder`).clone();
+    buttonElement.find('.btn')
+      .text(key)
+      .attr('href', charadex.url.addUrlParameters(pageUrl, { folder: key }));
+    folderElement.append(buttonElement);
+  }
+
+  // Show the folders
+  folderElement.parents(`#${selector}-folder-container`).show();
+
+  // Return a lil thing that'll add folders to entries
+  const addFolder = (entry, key) => {
+    entry.folder = entry[charadex.tools.scrub(key)];
   };
 
-  return handleGallery();
+  return addFolder;
+
+}
+
+
+/* ==================================================================== */
+/* Pagination
+======================================================================= */
+charadex.listFeatures.pagination = (galleryArrayLength, pageAmount = 12, bottomPaginationToggle = true, selector = 'charadex') => {
+
+  // Checks
+  if (!pageAmount || !galleryArrayLength || !selector) return false;
+
+  // You're safe to remove this if you want the pagination to show up even if its just one page
+  if (galleryArrayLength <= pageAmount) return false;
+
+  // Get our selectors
+  const elementSelector = `${selector}-pagination`;
+  const pagination = $(`.${elementSelector}`);
+
+  // Create the buttons
+  pagination.next().on('click', () => {
+    const nextElement = $('.pagination .active').next().children('a')[0];
+    if (nextElement) nextElement.click();
+  });
+
+  pagination.prev().on('click', () => {
+    const prevElement = $('.pagination .active').prev().children('a')[0];
+    if (prevElement) prevElement.click();
+  });
+
+  // Show the container
+  pagination.parents(`.${selector}-pagination-container`).show();
+
+  // Create the config
+  let paginationConfig = {
+    page: pageAmount,
+    pagination: [
+      {
+        innerWindow: 1,
+        left: 1,
+        right: 1,
+        item: `<li class='page-item'><a class='page page-link'></a></li>`,
+        paginationClass: `${elementSelector}-top`,
+      },
+    ],
+  }
+
+  // If there needs to be a bottom one, set it up
+  if (bottomPaginationToggle) paginationConfig.pagination.push(
+    {
+      innerWindow: 1,
+      left: 1,
+      right: 1,
+      item: `<li class='page-item'><a class='page page-link'></a></li>`,
+      paginationClass: `${elementSelector}-bottom`,
+    },
+  )
+
+  return paginationConfig;
+
+}
+
+
+/* ==================================================================== */
+/* Initialize Search
+======================================================================= */
+charadex.listFeatures.search = (searchParameters, searchFilterToggle = true, selector = 'charadex') => {
+
+  // If there's no search parameters, abort
+  if (!charadex.tools.checkArray(searchParameters)) return false;
+
+  // Get our elements
+  const searchElement = $(`#${selector}-search`);
+  const searchFilter = $(`#${selector}-search-filter`);
+
+  // Create
+  const createSearch = () => {
+    if (searchFilterToggle) {
+      searchFilter.append(charadex.tools.createSelectOptions(searchParameters));
+      searchFilter.parent().show();
+    }
+  }
+
+  const initializeSearch = (listJs) => {
+
+    if (!listJs) return false;
+    
+    // Else create the search
+    createSearch();
+
+    // Scrub the parameters
+    searchParameters = searchParameters.map(i => charadex.tools.scrub(i));
+
+    // Decide to use search filter or not when searching
+    searchElement.on("keyup", () => {
+
+      const selectedFilter = searchFilter.length > 0 ? searchFilter.val() : false;
+      const searchString = searchElement.val();
+
+      if (selectedFilter && selectedFilter !== 'all') {
+        listJs.search(searchString, [charadex.tools.scrub(selectedFilter)]); // Search by the filter val
+      } else {
+        listJs.search(searchString, searchParameters); // Else search any of the parameters
+      }
+
+    });
+
+    // Show search
+    searchElement.parents(`#${selector}-search-container`).show();
+
+  }
+
+  return { initializeSearch };
+
+}
+
+
+/* ==================================================================== */
+/* Prev Next Link
+======================================================================= */
+charadex.listFeatures.prevNextLink = function (pageUrl, galleryArray, profileArray, selector = 'charadex') {
+
+  // Checks
+  if (!charadex.tools.checkArray(galleryArray) || !charadex.tools.checkArray(profileArray) || !pageUrl) return false;
+
+  // Will help us create links
+  const updateLink = (selector, profile) => {
+    const element = $(selector);
+    if (profile) {
+      element.attr('href', charadex.url.addUrlParameters(pageUrl, { profile: profile.profileid }));
+      element.find('span').text(profile.profileid);
+      element.show();
+    } else {
+      element.hide();
+    }
+  };
+
+  // Check gallery index
+  const currentIndex = galleryArray.findIndex((item) => item.profileid === profileArray[0].profileid);
+  if (currentIndex === -1) return false;
+
+  // Add links based on links
+  updateLink('#entryPrev', galleryArray[currentIndex - 1] || null);
+  updateLink('#entryNext', galleryArray[currentIndex + 1] || null);
+
+  // Show the prevnext buttons
+  $(`#${selector}-prevnext-container`).show();
+  
+  return true;
 
 };
 
-export { charadex };
+
+export { charadex, List };
